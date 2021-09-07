@@ -24,10 +24,10 @@ QUANT_MODEL = True
 
 if QUANT_MODEL:
     _name = keras_model.get_quant_model_name()
-    model_path = 'trained_models/' + _name + '_quant.tflite'
+    model_path = 'trained_models/pre' + _name + '_quant.tflite'
 else:
     _name = keras_model.get_quant_model_name()
-    model_path = 'trained_models/' + _name + '.tflite'
+    model_path = 'trained_models/pre' + _name + '.tflite'
 
 if __name__ == '__main__':
     # Load the TFLite model and allocate tensors.
