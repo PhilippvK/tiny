@@ -45,12 +45,14 @@ def main(argv):
       BASE_DIR,
       target_size=(IMAGE_SIZE, IMAGE_SIZE),
       batch_size=BATCH_SIZE,
+      save_to_dir="/tmp/datadir2",
       subset='training',
       color_mode='rgb')
   val_generator = datagen.flow_from_directory(
       BASE_DIR,
       target_size=(IMAGE_SIZE, IMAGE_SIZE),
       batch_size=BATCH_SIZE,
+      save_to_dir="/tmp/datadir",
       subset='validation',
       color_mode='rgb')
   print(train_generator.class_indices)

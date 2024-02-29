@@ -109,6 +109,7 @@ def list_to_vector_array(file_list,
                                                 frames=frames,
                                                 n_fft=n_fft,
                                                 hop_length=hop_length,
+                                                save_bin=True,
                                                 power=power)
         if idx == 0:
             dataset = numpy.zeros((vector_array.shape[0] * len(file_list), dims), float)
@@ -155,7 +156,7 @@ if __name__ == "__main__":
     mode = com.command_line_chk()
     if mode is None:
         sys.exit(-1)
-        
+
     # make output directory
     os.makedirs(param["model_directory"], exist_ok=True)
 
@@ -205,7 +206,7 @@ if __name__ == "__main__":
                             shuffle=param["fit"]["shuffle"],
                             validation_split=param["fit"]["validation_split"],
                             verbose=param["fit"]["verbose"])
-        
+
         visualizer.loss_plot(history.history["loss"], history.history["val_loss"])
         visualizer.save_figure(history_img)
         model.save(model_file_path)

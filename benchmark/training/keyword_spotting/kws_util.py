@@ -10,7 +10,7 @@ def parse_command():
   parser.add_argument(
       '--data_dir',
       type=str,
-      default=os.path.join(os.getenv('HOME'), 'data'),
+      default=os.path.join("/tmp", 'data'),
       help="""\
       Where to download the speech training data to. Or where it is already saved.
       """)
@@ -157,7 +157,7 @@ def parse_command():
       '--lr_sched_name',
       type=str,
       default='step_function',
-      help='lr schedule scheme name to be picked from lr.py')  
+      help='lr schedule scheme name to be picked from lr.py')
   parser.add_argument(
       '--plot_dir',
       type=str,
@@ -217,4 +217,4 @@ def get_callbacks(args):
     return callbacks
 
 
-    
+

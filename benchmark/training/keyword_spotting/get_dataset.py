@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import struct
 
 import tensorflow as tf
 import tensorflow_datasets as tfds
@@ -69,10 +70,10 @@ def get_preprocess_audio_func(model_settings,is_training=False,background_data =
       wav_decoder = wav_decoder/tf.constant(2**15,dtype=tf.float32)
     #Previously, decode_wav was used with desired_samples as the length of array. The
     # default option of this function was to pad zeros if the desired samples are not found
-    wav_decoder = tf.pad(wav_decoder,[[0,desired_samples-tf.shape(wav_decoder)[-1]]]) 
+    wav_decoder = tf.pad(wav_decoder,[[0,desired_samples-tf.shape(wav_decoder)[-1]]])
     # Allow the audio sample's volume to be adjusted.
     foreground_volume_placeholder_ = tf.constant(1,dtype=tf.float32)
-    
+
     scaled_foreground = tf.multiply(wav_decoder,
                                     foreground_volume_placeholder_)
     # Shift the sample's start position, and pad any gaps with zeros.
@@ -81,7 +82,7 @@ def get_preprocess_audio_func(model_settings,is_training=False,background_data =
     scaled_foreground.shape
     padded_foreground = tf.pad(scaled_foreground, time_shift_padding_placeholder_, mode='CONSTANT')
     sliced_foreground = tf.slice(padded_foreground, time_shift_offset_placeholder_, [desired_samples])
-  
+
     if is_training and background_data != []:
       background_volume_range = tf.constant(background_volume_range_,dtype=tf.float32)
       background_index = np.random.randint(len(background_data))
@@ -101,9 +102,9 @@ def get_preprocess_audio_func(model_settings,is_training=False,background_data =
                            background_volume_placeholder_)
       background_add = tf.add(background_mul, sliced_foreground)
       sliced_foreground = tf.clip_by_value(background_add, -1.0, 1.0)
-    
+
     if model_settings['feature_type'] == 'mfcc':
-      stfts = tf.signal.stft(sliced_foreground, frame_length=model_settings['window_size_samples'], 
+      stfts = tf.signal.stft(sliced_foreground, frame_length=model_settings['window_size_samples'],
                          frame_step=model_settings['window_stride_samples'], fft_length=None,
                          window_fn=tf.signal.hann_window
                          )
@@ -111,7 +112,7 @@ def get_preprocess_audio_func(model_settings,is_training=False,background_data =
       num_spectrogram_bins = stfts.shape[-1]
       # default values used by contrib_audio.mfcc as shown here
       # https://kite.com/python/docs/tensorflow.contrib.slim.rev_block_lib.contrib_framework_ops.audio_ops.mfcc
-      lower_edge_hertz, upper_edge_hertz, num_mel_bins = 20.0, 4000.0, 40 
+      lower_edge_hertz, upper_edge_hertz, num_mel_bins = 20.0, 4000.0, 40
       linear_to_mel_weight_matrix = tf.signal.linear_to_mel_weight_matrix( num_mel_bins, num_spectrogram_bins,
                                                                            model_settings['sample_rate'],
                                                                            lower_edge_hertz, upper_edge_hertz)
@@ -135,31 +136,31 @@ def get_preprocess_audio_func(model_settings,is_training=False,background_data =
       sliced_foreground = tf.expand_dims(sliced_foreground, 0)
       sliced_foreground = tf.pad(tensor=sliced_foreground, paddings=paddings, mode='CONSTANT')
       sliced_foreground = sliced_foreground[:, 1:] - preemphasis_coef * sliced_foreground[:, :-1]
-      sliced_foreground = tf.squeeze(sliced_foreground) 
+      sliced_foreground = tf.squeeze(sliced_foreground)
       # compute fft
-      stfts = tf.signal.stft(sliced_foreground,  frame_length=model_settings['window_size_samples'], 
+      stfts = tf.signal.stft(sliced_foreground,  frame_length=model_settings['window_size_samples'],
                              frame_step=model_settings['window_stride_samples'], fft_length=None,
                              window_fn=functools.partial(
                                tf.signal.hamming_window, periodic=False),
                              pad_end=False,
                              name='STFT')
-    
+
       # compute magnitude spectrum [batch_size, num_frames, NFFT]
       magspec = tf.abs(stfts)
       num_spectrogram_bins = magspec.shape[-1]
-    
+
       # compute power spectrum [num_frames, NFFT]
       powspec = (1 / model_settings['window_size_samples']) * tf.square(magspec)
       powspec_max = tf.reduce_max(input_tensor=powspec)
       powspec = tf.clip_by_value(powspec, 1e-30, powspec_max) # prevent -infinity on log
-    
+
       def log10(x):
         # Compute log base 10 on the tensorflow graph.
         # x is a tensor.  returns log10(x) as a tensor
         numerator = tf.math.log(x)
         denominator = tf.math.log(tf.constant(10, dtype=numerator.dtype))
         return numerator / denominator
-    
+
       # Warp the linear-scale, magnitude spectrograms into the mel-scale.
       lower_edge_hertz, upper_edge_hertz = 0.0, model_settings['sample_rate'] / 2.0
       linear_to_mel_weight_matrix = (
@@ -176,7 +177,7 @@ def get_preprocess_audio_func(model_settings,is_training=False,background_data =
 
       log_mel_spec = 10 * log10(mel_spectrograms)
       log_mel_spec = tf.expand_dims(log_mel_spec, -1, name="mel_spec")
-    
+
       log_mel_spec = (log_mel_spec + power_offset - 32 + 32.0) / 64.0
       log_mel_spec = tf.clip_by_value(log_mel_spec, 0, 1)
 
@@ -190,9 +191,9 @@ def get_preprocess_audio_func(model_settings,is_training=False,background_data =
       wav_padded = tf.expand_dims(wav_padded, -1)
       wav_padded = tf.expand_dims(wav_padded, -1)
       next_element['audio'] = wav_padded
-      
+
     return next_element
-  
+
   return prepare_processing_graph
 
 
@@ -233,18 +234,18 @@ def prepare_background_data(bg_path,BACKGROUND_NOISE_DIR_NAME):
 
 
 def get_training_data(Flags, get_waves=False, val_cal_subset=False):
-  
+
   label_count=12
   background_frequency = Flags.background_frequency
   background_volume_range_= Flags.background_volume
   model_settings = models.prepare_model_settings(label_count, Flags)
 
   bg_path=Flags.bg_path
-  BACKGROUND_NOISE_DIR_NAME='_background_noise_' 
+  BACKGROUND_NOISE_DIR_NAME='_background_noise_'
   background_data = prepare_background_data(bg_path,BACKGROUND_NOISE_DIR_NAME)
 
   splits = ['train', 'test', 'validation']
-  (ds_train, ds_test, ds_val), ds_info = tfds.load('speech_commands', split=splits, 
+  (ds_train, ds_test, ds_val), ds_info = tfds.load('speech_commands', split=splits,
                                                 data_dir=Flags.data_dir, with_info=True)
 
   if val_cal_subset:  # only return the subset of val set used for quantization calibration
@@ -257,7 +258,7 @@ def get_training_data(Flags, get_waves=False, val_cal_subset=False):
     val_sub_labels = []
     for d in ds_val:
       if count in cal_indices:          # this is one of the calibration inpus
-        new_audio = d['audio'].numpy()  # so add it to a stack of tensors 
+        new_audio = d['audio'].numpy()  # so add it to a stack of tensors
         if len(new_audio) < 16000:      # from_tensor_slices doesn't work for ragged tensors, so pad to 16k
           new_audio = np.pad(new_audio, (0, 16000-len(new_audio)), 'constant')
         val_sub_audio.append(new_audio)
@@ -273,7 +274,7 @@ def get_training_data(Flags, get_waves=False, val_cal_subset=False):
     ds_val = ds_val.take(Flags.num_val_samples)
   if Flags.num_test_samples != -1:
     ds_test = ds_test.take(Flags.num_test_samples)
-    
+
   if get_waves:
     ds_train = ds_train.map(cast_and_pad)
     ds_test  =  ds_test.map(cast_and_pad)
@@ -293,12 +294,28 @@ def get_training_data(Flags, get_waves=False, val_cal_subset=False):
     ds_train = ds_train.map(convert_dataset)
     ds_test = ds_test.map(convert_dataset)
     ds_val = ds_val.map(convert_dataset)
+    print("ds_val", ds_val)
+    ds_val_ = [d[0].numpy() for d in ds_val]
+    for iii, x in enumerate(ds_val_):
+        print("iii", iii)
+        print("x", x)
+        x_flat = x.flatten().tolist()
+        print("x_flat", x_flat)
+        data = b''
+        for f in x_flat:
+            data += struct.pack("f", float(f))
+        dest = f"/tmp/kwsout/{iii}.bin"
+        print("dest")
+        with open(dest, "wb") as file:
+            file.write(data)
+    print("ds_val_", ds_val_, len(ds_val))
+    input("1")
 
   # Now that we've acquired the preprocessed data, either by processing or loading,
   ds_train = ds_train.batch(Flags.batch_size)
-  ds_test = ds_test.batch(Flags.batch_size)  
+  ds_test = ds_test.batch(Flags.batch_size)
   ds_val = ds_val.batch(Flags.batch_size)
-  
+
   return ds_train, ds_test, ds_val
 
 

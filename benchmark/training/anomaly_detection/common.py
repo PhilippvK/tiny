@@ -139,10 +139,11 @@ def file_to_vector_array(file_name,
                          hop_length=512,
                          power=2.0,
                          method="librosa",
-                         save_png=False,
-                         save_hist=False,
-                         save_bin=False,
-                         save_parts=False):
+                         save_png=True,
+                         save_hist=True,
+                         save_bin=True,
+                         save_parts=True
+                         ):
     """
     convert file_name to a vector array.
 
